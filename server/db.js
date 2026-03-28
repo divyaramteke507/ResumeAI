@@ -5,10 +5,15 @@ import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_PATH = path.join(__dirname, '..', 'db', 'candidates.sqlite');
+const isVercel = process.env.VERCEL === '1';
+const DB_PATH = isVercel 
+  ? path.join('/tmp', 'candidates.sqlite')
+  : path.join(__dirname, '..', 'db', 'candidates.sqlite');
 
-// Ensure db directory exists
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+// Ensure db directory exists (if not on Vercel or if creating in tmp)
+if (!isVercel) {
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+}
 
 const db = new Database(DB_PATH);
 

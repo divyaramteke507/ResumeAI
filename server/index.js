@@ -20,13 +20,21 @@ import { rankCandidates } from './services/ranking-agent.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const isVercel = process.env.VERCEL === '1';
 const ROOT = path.join(__dirname, '..');
 
 // ── Ensure directories exist ────────────────────────────────────
-const UPLOAD_DIR = path.join(ROOT, 'uploads');
-const REPORT_DIR = path.join(ROOT, 'reports');
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-fs.mkdirSync(REPORT_DIR, { recursive: true });
+const UPLOAD_DIR = isVercel ? path.join('/tmp', 'uploads') : path.join(ROOT, 'uploads');
+const REPORT_DIR = isVercel ? path.join('/tmp', 'reports') : path.join(ROOT, 'reports');
+
+if (!isVercel) {
+  try {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    fs.mkdirSync(REPORT_DIR, { recursive: true });
+  } catch (err) {
+    console.warn('Warning: Could not create directories:', err.message);
+  }
+}
 
 // ── Express App ─────────────────────────────────────────────────
 const app = express();
@@ -836,13 +844,15 @@ app.use((err, req, res, next) => {
 });
 
 // ── Start Server ────────────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`\n🧠 AI Resume Screening Agent — Server running on http://localhost:${PORT}`);
-  console.log(`   Database: ${path.relative(ROOT, path.join(ROOT, 'db', 'candidates.sqlite'))}`);
-  console.log(`   Uploads:  ${path.relative(ROOT, UPLOAD_DIR)}`);
-  console.log(`   Reports:  ${path.relative(ROOT, REPORT_DIR)}\n`);
-});
+if (!isVercel) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`\n🧠 AI Resume Screening Agent — Server running on http://localhost:${PORT}`);
+    console.log(`   Database: ${path.relative(ROOT, path.join(ROOT, 'db', 'candidates.sqlite'))}`);
+    console.log(`   Uploads:  ${path.relative(ROOT, UPLOAD_DIR)}`);
+    console.log(`   Reports:  ${path.relative(ROOT, REPORT_DIR)}\n`);
+  });
+}
 
 export default app;
 
