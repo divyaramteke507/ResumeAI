@@ -1608,7 +1608,7 @@ async function handleProcessJD() {
 
     const result = await api.createJD(text);
     state.jdId = result.id;
-    state.jdProfile = result;
+    state.jdProfile = { ...result, rawText: text };
 
     showToast(`JD processed! Found ${result.requiredSkills?.length || 0} required skills.`, 'success');
     render();

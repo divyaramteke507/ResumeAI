@@ -50,8 +50,8 @@ export const api = {
     }
     const { runId, configStr } = await initRes.json();
 
-    // 2. Upload and process in chunks
-    const CHUNK_SIZE = 3;
+    // 2. Upload and process in chunks (1 at a time for Vercel reliability)
+    const CHUNK_SIZE = 2;
     let processedFilesCount = 0;
     let allCandidates = [];
     
@@ -64,16 +64,32 @@ export const api = {
       for (const file of chunk) {
         formData.append('resumes', file);
       }
+
+      // 55-second timeout per chunk
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 55000);
       
-      const chunkRes = await fetch(`${BASE}/pipeline/chunk/${runId}`, {
-        method: 'POST',
-        headers: { 'x-run-id': runId },
-        body: formData
-      });
+      let chunkRes;
+      try {
+        chunkRes = await fetch(`${BASE}/pipeline/chunk/${runId}`, {
+          method: 'POST',
+          headers: { 'x-run-id': runId },
+          body: formData,
+          signal: controller.signal
+        });
+      } catch (fetchErr) {
+        clearTimeout(timeout);
+        if (fetchErr.name === 'AbortError') {
+          throw new Error(`Chunk ${Math.floor(i/CHUNK_SIZE)+1} timed out after 55s. Try uploading fewer resumes.`);
+        }
+        throw fetchErr;
+      }
+      clearTimeout(timeout);
       
       if (!chunkRes.ok) {
-        const err = await chunkRes.json().catch(() => ({ error: chunkRes.statusText }));
-        throw new Error(err.error || `Chunk processing failed`);
+        const errText = await chunkRes.text().catch(() => chunkRes.statusText);
+        console.error('Chunk error response:', chunkRes.status, errText);
+        throw new Error(`Chunk failed (${chunkRes.status}): ${errText.substring(0, 200)}`);
       }
 
       const data = await chunkRes.json();

@@ -39,8 +39,8 @@ if (!isVercel) {
 // ── Express App ─────────────────────────────────────────────────
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Serve uploaded files
 app.use('/uploads', express.static(UPLOAD_DIR));
@@ -173,72 +173,89 @@ app.post('/api/pipeline/init', (req, res) => {
 });
 
 // 2. Process Chunk (Stateless - returns candidates without saving to DB)
-app.post('/api/pipeline/chunk/:runId', upload.array('resumes', 10), async (req, res) => {
-  const runId = req.params.runId;
-  const jdId = req.body.jdId;
-  const config = JSON.parse(req.body.configStr || '{}');
-  const weights = config.weights || null;
-
-  try {
-    let jdProfile = config.jdProfile;
-    if (!jdProfile) {
-      const jdRow = queries.getJD.get(jdId);
-      if (!jdRow) return res.status(400).json({ error: 'JD not found' });
-  
-      jdProfile = {
-        title: jdRow.title,
-        rawText: jdRow.raw_text,
-        requiredSkills: JSON.parse(jdRow.required_skills),
-        preferredSkills: JSON.parse(jdRow.preferred_skills),
-        minExperience: jdRow.min_experience,
-        educationRequirement: jdRow.education_requirement,
-        featureWeights: JSON.parse(jdRow.feature_weights),
-        confidence: jdRow.confidence,
-      };
+app.post('/api/pipeline/chunk/:runId', (req, res, next) => {
+  // Wrap multer in error handler to catch upload failures on Vercel
+  upload.array('resumes', 10)(req, res, async (multerErr) => {
+    if (multerErr) {
+      console.error('Multer error:', multerErr);
+      return res.status(400).json({ error: 'File upload failed: ' + multerErr.message });
     }
 
-    if (!req.files || req.files.length === 0) {
-      return res.json({ success: true, processed: 0, errors: [], candidates: [] });
+    const runId = req.params.runId;
+    const jdId = req.body.jdId;
+    let config = {};
+    try {
+      config = JSON.parse(req.body.configStr || '{}');
+    } catch (parseErr) {
+      console.error('Config parse error:', parseErr);
+      return res.status(400).json({ error: 'Invalid config: ' + parseErr.message });
     }
+    const weights = config.weights || null;
 
-    // Process resumes in parallel
-    const processingPromises = req.files.map(async (file) => {
-      try {
-        const resumeDoc = await parseResume(file.path, file.originalname);
-
-        if (resumeDoc.error || !resumeDoc.rawText) {
-          return { error: resumeDoc.error || 'No text extracted', filename: file.originalname };
-        }
-
-        const candidateProfile = extractSkillsFromResume(resumeDoc, jdProfile);
-        const scored = scoreCandidate(candidateProfile, jdProfile, weights);
-
-        return {
-          ...candidateProfile,
-          ...scored,
-          filename: file.originalname,
-          filePath: `/uploads/${runId}/${file.filename}`,
-          rawText: resumeDoc.rawText,
-          sections: resumeDoc.sections,
-          parseMethod: resumeDoc.parseMethod,
-          parseConfidence: resumeDoc.parseConfidence,
-          id: uuidv4() // Generate ID statelessly
+    try {
+      let jdProfile = config.jdProfile;
+      if (!jdProfile) {
+        const jdRow = queries.getJD.get(jdId);
+        if (!jdRow) return res.status(400).json({ error: 'JD not found' });
+    
+        jdProfile = {
+          title: jdRow.title,
+          rawText: jdRow.raw_text,
+          requiredSkills: JSON.parse(jdRow.required_skills),
+          preferredSkills: JSON.parse(jdRow.preferred_skills),
+          minExperience: jdRow.min_experience,
+          educationRequirement: jdRow.education_requirement,
+          featureWeights: JSON.parse(jdRow.feature_weights),
+          confidence: jdRow.confidence,
         };
-      } catch (err) {
-        console.error(`Error processing ${file.originalname}:`, err);
-        return { error: err.message, filename: file.originalname };
       }
-    });
 
-    const results = await Promise.all(processingPromises);
-    const processedCandidates = results.filter(r => !r.error);
-    const errors = results.filter(r => r.error);
+      if (!req.files || req.files.length === 0) {
+        return res.json({ success: true, processed: 0, errors: [], candidates: [] });
+      }
 
-    res.json({ success: true, processed: processedCandidates.length, errors, candidates: processedCandidates });
-  } catch (err) {
-    console.error('Chunk error:', err);
-    res.status(500).json({ error: err.message });
-  }
+      console.log(`Processing chunk: ${req.files.length} files for run ${runId}`);
+
+      // Process resumes sequentially for memory safety on serverless
+      const processedCandidates = [];
+      const errors = [];
+
+      for (const file of req.files) {
+        try {
+          const resumeDoc = await parseResume(file.path, file.originalname);
+
+          if (resumeDoc.error || !resumeDoc.rawText) {
+            errors.push({ error: resumeDoc.error || 'No text extracted', filename: file.originalname });
+            continue;
+          }
+
+          const candidateProfile = extractSkillsFromResume(resumeDoc, jdProfile);
+          const scored = scoreCandidate(candidateProfile, jdProfile, weights);
+
+          processedCandidates.push({
+            ...candidateProfile,
+            ...scored,
+            filename: file.originalname,
+            filePath: `/uploads/${runId}/${file.filename}`,
+            rawText: resumeDoc.rawText,
+            sections: resumeDoc.sections,
+            parseMethod: resumeDoc.parseMethod,
+            parseConfidence: resumeDoc.parseConfidence,
+            id: uuidv4()
+          });
+        } catch (err) {
+          console.error(`Error processing ${file.originalname}:`, err);
+          errors.push({ error: err.message, filename: file.originalname });
+        }
+      }
+
+      console.log(`Chunk done: ${processedCandidates.length} processed, ${errors.length} errors`);
+      res.json({ success: true, processed: processedCandidates.length, errors, candidates: processedCandidates });
+    } catch (err) {
+      console.error('Chunk error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 });
 
 // 3. Finalize Run (Takes all accumulated candidates and saves to DB)
