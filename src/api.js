@@ -48,27 +48,37 @@ export const api = {
       const err = await initRes.json().catch(() => ({ error: initRes.statusText }));
       throw new Error(err.error || 'Failed to initialize pipeline');
     }
-    const { runId } = await initRes.json();
+    const { runId, configStr } = await initRes.json();
 
     // 2. Upload and process in chunks
     const CHUNK_SIZE = 3;
     let processedFilesCount = 0;
+    let allCandidates = [];
     
     for (let i = 0; i < files.length; i += CHUNK_SIZE) {
       const chunk = files.slice(i, i + CHUNK_SIZE);
       const formData = new FormData();
+      formData.append('jdId', jdId);
+      formData.append('configStr', configStr);
+
       for (const file of chunk) {
         formData.append('resumes', file);
       }
       
       const chunkRes = await fetch(`${BASE}/pipeline/chunk/${runId}`, {
         method: 'POST',
+        headers: { 'x-run-id': runId },
         body: formData
       });
       
       if (!chunkRes.ok) {
         const err = await chunkRes.json().catch(() => ({ error: chunkRes.statusText }));
         throw new Error(err.error || `Chunk processing failed`);
+      }
+
+      const data = await chunkRes.json();
+      if (data.candidates) {
+        allCandidates = allCandidates.concat(data.candidates);
       }
       
       processedFilesCount += chunk.length;
@@ -78,7 +88,8 @@ export const api = {
     // 3. Finalize
     const finalizeRes = await fetch(`${BASE}/pipeline/finalize/${runId}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jdId, configStr, candidates: allCandidates })
     });
     
     if (!finalizeRes.ok) {
