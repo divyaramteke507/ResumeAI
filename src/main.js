@@ -1635,15 +1635,25 @@ async function handleStartScreening() {
   state.view = 'processing';
   render();
 
-  // Animate pipeline stages
-  await animatePipeline();
+  // Animate pipeline stages (faster animation)
+  const animationPromise = animatePipeline(400);
 
   try {
+    // Add a check for long-running processes
+    const timeoutNotice = setTimeout(() => {
+      showToast('Processing is taking longer than usual... Please wait.', 'info');
+      const subtitle = document.querySelector('.processing-subtitle');
+      if (subtitle) subtitle.innerHTML += '<br><span style="font-size: var(--text-xs); opacity: 0.7;">Vercel has a total time limit. If this fails, try uploading fewer resumes at once.</span>';
+    }, 15000);
+
     const result = await api.runPipeline(state.jdId, state.uploadedFiles, {
       weights: state.weights,
       shortlistMode: 'top_n',
       shortlistValue: 50,
     });
+
+    clearTimeout(timeoutNotice);
+    await animationPromise; // Ensure animation finishes
 
     state.runId = result.runId;
     state.pipelineStats = result.stats;
@@ -1666,23 +1676,27 @@ async function handleStartScreening() {
     }
     showToast(`Screening complete! ${candidates.length} candidates ranked.`, 'success');
   } catch (err) {
-    showToast(`Pipeline error: ${err.message}`, 'error');
+    console.error('Pipeline failed:', err);
+    showToast(`Pipeline failed: ${err.message}`, 'error');
     state.view = 'upload';
     render();
   }
 }
 
-async function animatePipeline() {
+async function animatePipeline(speed = 600) {
   for (let i = 0; i < PIPELINE_STAGES.length; i++) {
     const stage = document.getElementById(`stage-${i}`);
     if (!stage) continue;
+
+    // Skip if already completed (re-entrant check)
+    if (stage.classList.contains('completed')) continue;
 
     // Activate current stage
     stage.classList.add('active');
     const icon = stage.querySelector('.stage-dot');
     if (icon) icon.innerHTML = '<div class="stage-spinner"></div>';
 
-    await sleep(600 + Math.random() * 400);
+    await sleep(speed + Math.random() * (speed / 2));
 
     // Complete stage
     stage.classList.remove('active');

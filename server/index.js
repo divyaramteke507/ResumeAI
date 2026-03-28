@@ -203,11 +203,8 @@ app.post('/api/pipeline/run', (req, res, next) => {
     // Custom weights from config
     const weights = config.weights || null;
 
-    // ── Process each resume ────────────────────────────────────
-    const processedCandidates = [];
-    const errors = [];
-
-    for (const file of req.files) {
+    // ── Process resumes in parallel ───────────────────────────
+    const processingPromises = req.files.map(async (file) => {
       try {
         queries.insertAudit.run(runId, 'resume_processing', JSON.stringify({
           filename: file.originalname,
@@ -218,12 +215,11 @@ app.post('/api/pipeline/run', (req, res, next) => {
         const resumeDoc = await parseResume(file.path, file.originalname);
 
         if (resumeDoc.error || !resumeDoc.rawText) {
-          errors.push({ filename: file.originalname, error: resumeDoc.error || 'No text extracted' });
           queries.insertAudit.run(runId, 'parse_failed', JSON.stringify({
             filename: file.originalname,
-            error: resumeDoc.error,
+            error: resumeDoc.error || 'No text extracted',
           }));
-          continue;
+          return { error: resumeDoc.error || 'No text extracted', filename: file.originalname };
         }
 
         // Step 2: Extract skills & entities
@@ -233,7 +229,7 @@ app.post('/api/pipeline/run', (req, res, next) => {
         const scored = scoreCandidate(candidateProfile, jdProfile, weights);
 
         // Merge all data
-        const fullCandidate = {
+        return {
           ...candidateProfile,
           ...scored,
           filename: file.originalname,
@@ -243,17 +239,19 @@ app.post('/api/pipeline/run', (req, res, next) => {
           parseMethod: resumeDoc.parseMethod,
           parseConfidence: resumeDoc.parseConfidence,
         };
-
-        processedCandidates.push(fullCandidate);
       } catch (err) {
         console.error(`Error processing ${file.originalname}:`, err);
-        errors.push({ filename: file.originalname, error: err.message });
         queries.insertAudit.run(runId, 'processing_error', JSON.stringify({
           filename: file.originalname,
           error: err.message,
         }));
+        return { error: err.message, filename: file.originalname };
       }
-    }
+    });
+
+    const results = await Promise.all(processingPromises);
+    const processedCandidates = results.filter(r => !r.error);
+    const errors = results.filter(r => r.error);
 
     // ── Step 4: Rank & Shortlist ─────────────────────────────
     const rankingConfig = {
