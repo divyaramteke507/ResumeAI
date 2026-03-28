@@ -37,21 +37,56 @@ export const api = {
   listJDs: () => request('/jds'),
 
   // Pipeline
-  runPipeline: (jdId, files, config = {}) => {
-    const formData = new FormData();
-    formData.append('jdId', jdId);
-    formData.append('config', JSON.stringify(config));
-    for (const file of files) {
-      formData.append('resumes', file);
+  runPipeline: async (jdId, files, config = {}, onProgress) => {
+    // 1. Initialize
+    const initRes = await fetch(`${BASE}/pipeline/init`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jdId, config })
+    });
+    if (!initRes.ok) {
+      const err = await initRes.json().catch(() => ({ error: initRes.statusText }));
+      throw new Error(err.error || 'Failed to initialize pipeline');
     }
-    return fetch(`${BASE}/pipeline/run`, { method: 'POST', body: formData })
-      .then(async (res) => {
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: res.statusText }));
-          throw new Error(err.error || 'Pipeline failed');
-        }
-        return res.json();
+    const { runId } = await initRes.json();
+
+    // 2. Upload and process in chunks
+    const CHUNK_SIZE = 3;
+    let processedFilesCount = 0;
+    
+    for (let i = 0; i < files.length; i += CHUNK_SIZE) {
+      const chunk = files.slice(i, i + CHUNK_SIZE);
+      const formData = new FormData();
+      for (const file of chunk) {
+        formData.append('resumes', file);
+      }
+      
+      const chunkRes = await fetch(`${BASE}/pipeline/chunk/${runId}`, {
+        method: 'POST',
+        body: formData
       });
+      
+      if (!chunkRes.ok) {
+        const err = await chunkRes.json().catch(() => ({ error: chunkRes.statusText }));
+        throw new Error(err.error || `Chunk processing failed`);
+      }
+      
+      processedFilesCount += chunk.length;
+      if (onProgress) onProgress(processedFilesCount, files.length);
+    }
+
+    // 3. Finalize
+    const finalizeRes = await fetch(`${BASE}/pipeline/finalize/${runId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (!finalizeRes.ok) {
+      const err = await finalizeRes.json().catch(() => ({ error: finalizeRes.statusText }));
+      throw new Error(err.error || 'Failed to finalize pipeline');
+    }
+    
+    return finalizeRes.json();
   },
   getPipelineStatus: (runId) => request(`/pipeline/status/${runId}`),
 

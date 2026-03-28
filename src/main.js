@@ -1639,21 +1639,29 @@ async function handleStartScreening() {
   const animationPromise = animatePipeline(400);
 
   try {
-    // Add a check for long-running processes
-    const timeoutNotice = setTimeout(() => {
-      showToast('Processing is taking longer than usual... Please wait.', 'info');
-      const subtitle = document.querySelector('.processing-subtitle');
-      if (subtitle) subtitle.innerHTML += '<br><span style="font-size: var(--text-xs); opacity: 0.7;">Vercel has a total time limit. If this fails, try uploading fewer resumes at once.</span>';
-    }, 15000);
+    const subtitle = document.querySelector('.processing-subtitle');
+    if (subtitle) {
+      subtitle.innerHTML = `Starting pipeline for ${state.uploadedFiles.length} resumes...<br><span id="chunk-progress" style="font-weight: bold; color: var(--accent-blue);">0 / ${state.uploadedFiles.length}</span>`;
+    }
 
-    const result = await api.runPipeline(state.jdId, state.uploadedFiles, {
-      weights: state.weights,
-      shortlistMode: 'top_n',
-      shortlistValue: 50,
-    });
+    const result = await api.runPipeline(
+      state.jdId, 
+      state.uploadedFiles, 
+      {
+        weights: state.weights,
+        shortlistMode: 'top_n',
+        shortlistValue: 50,
+      },
+      (processed, total) => {
+        const progressEl = document.getElementById('chunk-progress');
+        if (progressEl) {
+          progressEl.textContent = `${processed} / ${total} processed`;
+        }
+      }
+    );
 
-    clearTimeout(timeoutNotice);
     await animationPromise; // Ensure animation finishes
+
 
     state.runId = result.runId;
     state.pipelineStats = result.stats;

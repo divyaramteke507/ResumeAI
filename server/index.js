@@ -158,37 +158,39 @@ app.get('/api/jds', (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 // Run full pipeline: upload resumes + process
-app.post('/api/pipeline/run', (req, res, next) => {
-  const runId = uuidv4();
-  req.runId = runId;
-  next();
-}, upload.array('resumes', 100), async (req, res) => {
-  const runId = req.runId;
-  const jdId = req.body.jdId;
-  const configStr = req.body.config || '{}';
+// 1. Initialize Run
+app.post('/api/pipeline/init', (req, res) => {
+  try {
+    const jdId = req.body.jdId;
+    const configStr = JSON.stringify(req.body.config || {});
+    const runId = uuidv4();
+
+    const jdRow = queries.getJD.get(jdId);
+    if (!jdRow) return res.status(400).json({ error: 'Invalid JD ID. Create a JD first.' });
+
+    queries.insertRun.run(runId, jdId, 'processing', configStr);
+    queries.insertAudit.run(runId, 'pipeline_started', JSON.stringify({ jdId }));
+
+    res.json({ runId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2. Process Chunk
+app.post('/api/pipeline/chunk/:runId', upload.array('resumes', 10), async (req, res) => {
+  const runId = req.params.runId;
+  const run = queries.getRun.get(runId);
+  if (!run) return res.status(404).json({ error: 'Run not found' });
+  
+  const jdId = run.jd_id;
+  const config = JSON.parse(run.config || '{}');
+  const weights = config.weights || null;
 
   try {
-    const config = JSON.parse(configStr);
-
-    // Validate JD exists
     const jdRow = queries.getJD.get(jdId);
-    if (!jdRow) {
-      return res.status(400).json({ error: 'Invalid JD ID. Create a JD first.' });
-    }
+    if (!jdRow) return res.status(400).json({ error: 'JD not found' });
 
-    // Validate files uploaded
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: 'No resume files uploaded.' });
-    }
-
-    // Create run record
-    queries.insertRun.run(runId, jdId, 'processing', JSON.stringify(config));
-    queries.insertAudit.run(runId, 'pipeline_started', JSON.stringify({
-      jdId,
-      resumeCount: req.files.length,
-    }));
-
-    // Build JD profile for scoring
     const jdProfile = {
       title: jdRow.title,
       rawText: jdRow.raw_text,
@@ -200,35 +202,24 @@ app.post('/api/pipeline/run', (req, res, next) => {
       confidence: jdRow.confidence,
     };
 
-    // Custom weights from config
-    const weights = config.weights || null;
+    if (!req.files || req.files.length === 0) {
+      return res.json({ success: true, processed: 0, errors: [] });
+    }
 
-    // ── Process resumes in parallel ───────────────────────────
+    // Process resumes in parallel
     const processingPromises = req.files.map(async (file) => {
       try {
-        queries.insertAudit.run(runId, 'resume_processing', JSON.stringify({
-          filename: file.originalname,
-          size: file.size,
-        }));
-
-        // Step 1: Parse resume
+        queries.insertAudit.run(runId, 'resume_processing', JSON.stringify({ filename: file.originalname, size: file.size }));
         const resumeDoc = await parseResume(file.path, file.originalname);
 
         if (resumeDoc.error || !resumeDoc.rawText) {
-          queries.insertAudit.run(runId, 'parse_failed', JSON.stringify({
-            filename: file.originalname,
-            error: resumeDoc.error || 'No text extracted',
-          }));
+          queries.insertAudit.run(runId, 'parse_failed', JSON.stringify({ filename: file.originalname, error: resumeDoc.error || 'No text extracted' }));
           return { error: resumeDoc.error || 'No text extracted', filename: file.originalname };
         }
 
-        // Step 2: Extract skills & entities
         const candidateProfile = extractSkillsFromResume(resumeDoc, jdProfile);
-
-        // Step 3: Score candidate
         const scored = scoreCandidate(candidateProfile, jdProfile, weights);
 
-        // Merge all data
         return {
           ...candidateProfile,
           ...scored,
@@ -241,10 +232,7 @@ app.post('/api/pipeline/run', (req, res, next) => {
         };
       } catch (err) {
         console.error(`Error processing ${file.originalname}:`, err);
-        queries.insertAudit.run(runId, 'processing_error', JSON.stringify({
-          filename: file.originalname,
-          error: err.message,
-        }));
+        queries.insertAudit.run(runId, 'processing_error', JSON.stringify({ filename: file.originalname, error: err.message }));
         return { error: err.message, filename: file.originalname };
       }
     });
@@ -253,69 +241,114 @@ app.post('/api/pipeline/run', (req, res, next) => {
     const processedCandidates = results.filter(r => !r.error);
     const errors = results.filter(r => r.error);
 
-    // ── Step 4: Rank & Shortlist ─────────────────────────────
+    if (processedCandidates.length > 0) {
+      const insertMany = db.transaction((candidates) => {
+        for (const c of candidates) {
+          const candidateId = uuidv4();
+          queries.insertCandidate.run(
+            candidateId, runId, jdId,
+            c.filename, c.name, c.email, c.phone || '',
+            c.rawText, JSON.stringify(c.sections || {}),
+            c.parseMethod, c.parseConfidence,
+            JSON.stringify(c.matchedSkills || []),
+            JSON.stringify(c.missingSkills || []),
+            JSON.stringify(c.preferredMatched || []),
+            c.totalYOE || 0,
+            JSON.stringify(c.yoePerRole || []),
+            JSON.stringify(c.education || {}),
+            JSON.stringify(c.employmentGaps || []),
+            c.compositeScore, JSON.stringify(c.subScores || {}),
+            JSON.stringify(c.penalties || []),
+            JSON.stringify(c.bonuses || []),
+            c.explanation || '',
+            0, '',
+            JSON.stringify(c.keyHighlights || [])
+          );
+        }
+      });
+      insertMany(processedCandidates);
+    }
+
+    const currentStats = JSON.parse(run.stats || '{"totalProcessed":0,"successfullyParsed":0,"parseErrors":0}');
+    currentStats.totalProcessed += req.files.length;
+    currentStats.successfullyParsed += processedCandidates.length;
+    currentStats.parseErrors += errors.length;
+    queries.updateRunStatus.run('processing', JSON.stringify(currentStats), runId);
+
+    res.json({ success: true, processed: processedCandidates.length, errors });
+  } catch (err) {
+    console.error('Chunk error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 3. Finalize Run
+app.post('/api/pipeline/finalize/:runId', (req, res) => {
+  const runId = req.params.runId;
+  const run = queries.getRun.get(runId);
+  if (!run) return res.status(404).json({ error: 'Run not found' });
+
+  const config = JSON.parse(run.config || '{}');
+  
+  try {
+    const rawCandidates = queries.getCandidatesByRun.all(runId);
+    
+    // Convert DB rows back to objects for ranking
+    const candidatesForRanking = rawCandidates.map(c => ({
+      id: c.id,
+      name: c.name,
+      email: c.email,
+      compositeScore: c.composite_score,
+      subScores: JSON.parse(c.sub_scores || '{}'),
+      explanation: c.explanation,
+      matchedSkills: JSON.parse(c.matched_skills || '[]'),
+      missingSkills: JSON.parse(c.missing_skills || '[]'),
+      education: JSON.parse(c.education || '{}'),
+      totalYOE: c.total_yoe,
+    }));
+
     const rankingConfig = {
       mode: config.shortlistMode || 'top_n',
-      value: config.shortlistValue || 10,
+      value: config.shortlistValue || 50,
       minCandidates: 3,
     };
 
-    const rankResult = rankCandidates(processedCandidates, rankingConfig);
-
-    // ── Step 5: Save to database ─────────────────────────────
-    const insertMany = db.transaction((candidates) => {
-      for (const c of candidates) {
-        const candidateId = uuidv4();
-        queries.insertCandidate.run(
-          candidateId, runId, jdId,
-          c.filename, c.name, c.email, c.phone || '',
-          c.rawText, JSON.stringify(c.sections || {}),
-          c.parseMethod, c.parseConfidence,
-          JSON.stringify(c.matchedSkills || []),
-          JSON.stringify(c.missingSkills || []),
-          JSON.stringify(c.preferredMatched || []),
-          c.totalYOE || 0,
-          JSON.stringify(c.yoePerRole || []),
-          JSON.stringify(c.education || {}),
-          JSON.stringify(c.employmentGaps || []),
-          c.compositeScore, JSON.stringify(c.subScores || {}),
-          JSON.stringify(c.penalties || []),
-          JSON.stringify(c.bonuses || []),
-          c.explanation || '',
-          c.rank || 0, c.recommendation || '',
-          JSON.stringify(c.keyHighlights || [])
+    // Run standard ranking agent
+    const rankResult = rankCandidates(candidatesForRanking, rankingConfig);
+    
+    // Sort all raw candidates according to rank
+    const updateRanks = db.transaction((ranked) => {
+      for (const info of ranked) {
+        queries.updateCandidateScores.run(
+          info.compositeScore,
+          JSON.stringify(info.subScores),
+          info.explanation,
+          info.rank,
+          info.recommendation,
+          info.id
         );
       }
     });
+    updateRanks(rankResult.allRanked);
 
-    insertMany(rankResult.allRanked);
-
-    // Update run status
-    const stats = {
-      totalProcessed: req.files.length,
-      successfullyParsed: processedCandidates.length,
-      parseErrors: errors.length,
-      shortlistSize: rankResult.shortlistSize,
-      cutoffMode: rankResult.cutoffApplied,
-      cutoffValue: rankResult.cutoffValue,
-      duplicatesMerged: rankResult.duplicatesMerged,
-      diversityFlag: rankResult.diversityFlag,
-    };
+    const stats = JSON.parse(run.stats || '{}');
+    stats.shortlistSize = rankResult.shortlistSize;
+    stats.cutoffMode = rankResult.cutoffApplied;
+    stats.cutoffValue = rankResult.cutoffValue;
+    stats.duplicatesMerged = rankResult.duplicatesMerged;
+    stats.diversityFlag = rankResult.diversityFlag;
 
     queries.updateRunStatus.run('completed', JSON.stringify(stats), runId);
     queries.insertAudit.run(runId, 'pipeline_completed', JSON.stringify(stats));
 
-    // ── Return Results ───────────────────────────────────────
     res.json({
       runId,
-      jdId,
+      jdId: run.jd_id,
       stats,
       diversityNote: rankResult.diversityNote,
-      errors,
     });
-
   } catch (err) {
-    console.error('Pipeline error:', err);
+    console.error('Finalize error:', err);
     queries.updateRunStatus.run('failed', JSON.stringify({ error: err.message }), runId);
     queries.insertAudit.run(runId, 'pipeline_failed', JSON.stringify({ error: err.message }));
     res.status(500).json({ error: err.message });
