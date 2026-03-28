@@ -180,19 +180,22 @@ app.post('/api/pipeline/chunk/:runId', upload.array('resumes', 10), async (req, 
   const weights = config.weights || null;
 
   try {
-    const jdRow = queries.getJD.get(jdId);
-    if (!jdRow) return res.status(400).json({ error: 'JD not found' });
-
-    const jdProfile = {
-      title: jdRow.title,
-      rawText: jdRow.raw_text,
-      requiredSkills: JSON.parse(jdRow.required_skills),
-      preferredSkills: JSON.parse(jdRow.preferred_skills),
-      minExperience: jdRow.min_experience,
-      educationRequirement: jdRow.education_requirement,
-      featureWeights: JSON.parse(jdRow.feature_weights),
-      confidence: jdRow.confidence,
-    };
+    let jdProfile = config.jdProfile;
+    if (!jdProfile) {
+      const jdRow = queries.getJD.get(jdId);
+      if (!jdRow) return res.status(400).json({ error: 'JD not found' });
+  
+      jdProfile = {
+        title: jdRow.title,
+        rawText: jdRow.raw_text,
+        requiredSkills: JSON.parse(jdRow.required_skills),
+        preferredSkills: JSON.parse(jdRow.preferred_skills),
+        minExperience: jdRow.min_experience,
+        educationRequirement: jdRow.education_requirement,
+        featureWeights: JSON.parse(jdRow.feature_weights),
+        confidence: jdRow.confidence,
+      };
+    }
 
     if (!req.files || req.files.length === 0) {
       return res.json({ success: true, processed: 0, errors: [], candidates: [] });

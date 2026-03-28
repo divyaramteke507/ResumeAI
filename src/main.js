@@ -1651,6 +1651,7 @@ async function handleStartScreening() {
         weights: state.weights,
         shortlistMode: 'top_n',
         shortlistValue: 50,
+        jdProfile: state.jdProfile,
       },
       (processed, total) => {
         const progressEl = document.getElementById('chunk-progress');
