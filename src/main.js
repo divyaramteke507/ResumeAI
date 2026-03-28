@@ -1775,8 +1775,23 @@ async function handleCandidateAction(id, action) {
 
     showToast(`Candidate ${status}: ${candidate?.name || ''}`, status === 'approved' ? 'success' : 'info');
 
-    // Move to next pending candidate if available
-    if (action !== 'interview') {
+    // Handle interview email scheduling or Move to next candidate
+    if (action === 'interview') {
+      const email = candidate.email;
+      if (email) {
+        const jdTitle = state.jdProfile?.title || 'Job Application';
+        const firstName = candidate.name ? candidate.name.split(' ')[0] : 'Candidate';
+        const matched = Array.isArray(candidate.matched_skills) ? candidate.matched_skills : [];
+        const skillsText = matched.length > 0 ? `your experience with ${matched.slice(0, 3).join(', ')}` : 'your background';
+        
+        const subject = encodeURIComponent(`Interview Invitation: ${jdTitle}`);
+        const body = encodeURIComponent(`Hi ${firstName},\n\nWe've reviewed your resume and were incredibly impressed by ${skillsText}.\n\nWe would love to schedule a brief introductory call with you to discuss the ${jdTitle} role.\n\nPlease let us know what times work best for you this week.\n\nBest regards,\n[Your Name / Company]`);
+
+        window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
+      } else {
+        showToast('No email address extracted for this candidate.', 'error');
+      }
+    } else {
       const currentIdx = state.candidates.findIndex(c => c.id === id);
       const next = state.candidates.find((c, i) => i > currentIdx && c.status === 'pending');
       if (next) {
