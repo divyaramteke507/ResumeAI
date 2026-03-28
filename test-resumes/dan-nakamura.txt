@@ -1,0 +1,37 @@
+Dan Nakamura
+dan.nakamura@proton.me
++1-555-456-7890
+
+Summary
+Engineering manager turned individual contributor. 12 years of experience spanning embedded systems, backend infrastructure, and team leadership. Deep expertise in Go, Kubernetes, and distributed systems.
+
+Professional Experience
+
+Principal Engineer — CloudScale Inc
+Mar 2020 – Present
+• Architected Kubernetes-based platform serving 2M requests per minute
+• Designed service mesh using Istio and Envoy across 200+ microservices
+• Built observability stack with Prometheus, Grafana, and ELK
+• Mentored 15 engineers across infrastructure and platform teams
+
+Engineering Manager — SystemsForge
+Jun 2016 – Feb 2020
+• Employment gap note: took 6 months sabbatical in 2019 for personal development
+• Managed 3 engineering teams (20 direct reports) building cloud infrastructure
+• Led migration from on-premise to GCP, reducing infrastructure costs by 45%
+• Established SRE practices, improving system uptime from 99.5% to 99.99%
+• Designed and implemented internal developer platform
+
+Senior Software Engineer — EmbeddedTech
+Jan 2012 – May 2016
+• Developed real-time firmware for IoT devices using C and C++
+• Built monitoring dashboards using Python and React
+• Implemented OTA update system handling 500k devices
+
+Education
+
+PhD in Computer Engineering
+Georgia Institute of Technology — 2011
+
+Skills
+Go, Kubernetes, Docker, GCP, AWS, Python, C, C++, Terraform, Prometheus, Grafana, PostgreSQL, Redis, gRPC, Microservices, System Design, Linux, CI/CD, Leadership, Mentoring

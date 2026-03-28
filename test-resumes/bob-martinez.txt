@@ -1,0 +1,32 @@
+Bob Martinez
+bob.martinez@gmail.com
+
+Profile
+Backend engineer with 3 years of experience focused on Python and cloud infrastructure. Strong background in data engineering and API development.
+
+Work Experience
+
+Backend Developer — DataFlow Systems
+Jul 2022 – Present
+• Built data processing pipelines using Python, Apache Spark, and Airflow
+• Designed and maintained REST APIs using FastAPI and PostgreSQL
+• Deployed services to AWS ECS with Terraform and Docker
+• Improved data pipeline throughput by 60% through parallelization
+
+Junior Backend Developer — CodeCraft
+Sep 2020 – Jun 2022
+• Developed microservices in Python using Django and Flask
+• Managed PostgreSQL and Redis databases
+• Wrote unit tests achieving 85% code coverage with pytest
+• Participated in Agile sprints and code review processes
+
+Education
+
+Master of Science in Computer Science
+MIT — 2020
+
+Bachelor of Science in Mathematics
+UC Berkeley — 2018
+
+Skills
+Python, Django, Flask, FastAPI, PostgreSQL, Redis, Docker, AWS, Terraform, Apache Spark, Airflow, Git, Linux, SQL, REST APIs, Agile

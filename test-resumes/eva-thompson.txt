@@ -1,0 +1,35 @@
+Eva Thompson
+eva.t@email.io
+
+About Me
+Recent bootcamp graduate with passion for web development. Completed full-stack development bootcamp at App Academy. Looking for entry-level opportunities.
+
+Education
+
+Full-Stack Web Development Certificate
+App Academy — 2024
+
+Bachelor of Science in Biology
+University of Oregon — 2020
+
+Work History
+
+Lab Research Assistant — Oregon Health Sciences
+Sep 2020 – Aug 2023
+• Conducted cell biology experiments and data analysis using R and MATLAB
+• Published two peer-reviewed papers on gene expression analysis
+• Managed laboratory inventory and equipment maintenance
+
+Projects
+
+TaskTracker App
+• Built a full-stack task management app using React, Node.js, and MongoDB
+• Implemented user authentication with JWT tokens
+• Deployed on Heroku with CI/CD through GitHub Actions
+
+WeatherNow
+• Created a weather dashboard using JavaScript and OpenWeatherMap API
+• Implemented geolocation features and responsive design
+
+Skills
+JavaScript, React, Node.js, Express, MongoDB, HTML, CSS, Git, SQL, REST APIs

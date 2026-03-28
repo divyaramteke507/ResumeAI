@@ -1,0 +1,33 @@
+Carol Davis
+carol.davis@outlook.com
+(555) 987-6543
+
+Objective
+Seeking a challenging role in software engineering where I can leverage my frontend development skills and grow as a full-stack developer.
+
+Experience
+
+Frontend Developer — PixelPerfect Design Studio
+Apr 2023 – Present
+• Develop responsive web applications using React, Next.js, and Tailwind CSS
+• Implement complex UI animations and interactive data visualizations using D3.js
+• Collaborate with UX designers to translate Figma mockups into pixel-perfect components
+• Optimized Core Web Vitals achieving 95+ Lighthouse performance score
+
+Web Developer Intern — LocalBiz Solutions
+Jun 2022 – Mar 2023
+• Built client websites using HTML, CSS, and JavaScript
+• Created WordPress themes and configured WooCommerce stores
+• Managed hosting environments on AWS EC2 instances
+
+Education
+
+Bachelor of Arts in Information Technology
+Boston University — 2022
+
+Projects
+• Open Source Dashboard Template — React + TypeScript + Recharts (800+ stars on GitHub)
+• Personal Blog — Built with Next.js and MDX, deployed on Vercel
+
+Skills
+React, Next.js, TypeScript, JavaScript, HTML, CSS, Tailwind CSS, Figma, Git, AWS, D3.js, Storybook, Webpack, Vite

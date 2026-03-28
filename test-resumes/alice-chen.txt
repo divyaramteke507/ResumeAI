@@ -1,0 +1,39 @@
+Alice Chen
+alice.chen@email.com
++1 (555) 123-4567
+
+Summary
+Senior Full-Stack Engineer with 6 years of experience building scalable web applications. Passionate about clean code, performance optimization, and mentoring junior developers.
+
+Experience
+
+Senior Software Engineer — TechCorp Inc
+Jan 2021 – Present
+• Led migration of monolithic Rails app to React/Node.js microservices architecture
+• Reduced API latency by 40% through Redis caching and query optimization
+• Built real-time notification system using WebSocket and AWS SNS
+• Managed team of 8 engineers across 3 time zones
+• Implemented CI/CD pipeline with GitHub Actions and Docker
+
+Software Engineer — StartupXYZ
+Mar 2018 – Dec 2020
+• Developed customer-facing dashboard using React, TypeScript, and Redux
+• Designed RESTful APIs with Node.js and Express serving 50k daily active users
+• Integrated Stripe payment processing and Twilio SMS notifications
+• Contributed to open source React component library (3k+ GitHub stars)
+
+Junior Developer — WebAgency
+Jun 2017 – Feb 2018
+• Built responsive websites using HTML, CSS, JavaScript, and jQuery
+• Maintained WordPress sites and developed custom PHP plugins
+
+Education
+
+Bachelor of Science in Computer Science
+Stanford University — 2017
+
+Skills
+JavaScript, TypeScript, React, Node.js, Express, Python, PostgreSQL, MongoDB, Redis, Docker, AWS, GitHub Actions, CI/CD, REST APIs, GraphQL, Agile, Git
+
+Certifications
+AWS Certified Solutions Architect – Associate
