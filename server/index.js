@@ -39,8 +39,8 @@ if (!isVercel) {
 // ── Express App ─────────────────────────────────────────────────
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded files
 app.use('/uploads', express.static(UPLOAD_DIR));
@@ -173,89 +173,72 @@ app.post('/api/pipeline/init', (req, res) => {
 });
 
 // 2. Process Chunk (Stateless - returns candidates without saving to DB)
-app.post('/api/pipeline/chunk/:runId', (req, res, next) => {
-  // Wrap multer in error handler to catch upload failures on Vercel
-  upload.array('resumes', 10)(req, res, async (multerErr) => {
-    if (multerErr) {
-      console.error('Multer error:', multerErr);
-      return res.status(400).json({ error: 'File upload failed: ' + multerErr.message });
+app.post('/api/pipeline/chunk/:runId', upload.array('resumes', 10), async (req, res) => {
+  const runId = req.params.runId;
+  const jdId = req.body.jdId;
+  const config = JSON.parse(req.body.configStr || '{}');
+  const weights = config.weights || null;
+
+  try {
+    let jdProfile = config.jdProfile;
+    if (!jdProfile) {
+      const jdRow = queries.getJD.get(jdId);
+      if (!jdRow) return res.status(400).json({ error: 'JD not found' });
+
+      jdProfile = {
+        title: jdRow.title,
+        rawText: jdRow.raw_text,
+        requiredSkills: JSON.parse(jdRow.required_skills),
+        preferredSkills: JSON.parse(jdRow.preferred_skills),
+        minExperience: jdRow.min_experience,
+        educationRequirement: jdRow.education_requirement,
+        featureWeights: JSON.parse(jdRow.feature_weights),
+        confidence: jdRow.confidence,
+      };
     }
 
-    const runId = req.params.runId;
-    const jdId = req.body.jdId;
-    let config = {};
-    try {
-      config = JSON.parse(req.body.configStr || '{}');
-    } catch (parseErr) {
-      console.error('Config parse error:', parseErr);
-      return res.status(400).json({ error: 'Invalid config: ' + parseErr.message });
+    if (!req.files || req.files.length === 0) {
+      return res.json({ success: true, processed: 0, errors: [], candidates: [] });
     }
-    const weights = config.weights || null;
 
-    try {
-      let jdProfile = config.jdProfile;
-      if (!jdProfile) {
-        const jdRow = queries.getJD.get(jdId);
-        if (!jdRow) return res.status(400).json({ error: 'JD not found' });
-    
-        jdProfile = {
-          title: jdRow.title,
-          rawText: jdRow.raw_text,
-          requiredSkills: JSON.parse(jdRow.required_skills),
-          preferredSkills: JSON.parse(jdRow.preferred_skills),
-          minExperience: jdRow.min_experience,
-          educationRequirement: jdRow.education_requirement,
-          featureWeights: JSON.parse(jdRow.feature_weights),
-          confidence: jdRow.confidence,
-        };
-      }
+    // Process resumes in parallel
+    const processingPromises = req.files.map(async (file) => {
+      try {
+        const resumeDoc = await parseResume(file.path, file.originalname);
 
-      if (!req.files || req.files.length === 0) {
-        return res.json({ success: true, processed: 0, errors: [], candidates: [] });
-      }
-
-      console.log(`Processing chunk: ${req.files.length} files for run ${runId}`);
-
-      // Process resumes sequentially for memory safety on serverless
-      const processedCandidates = [];
-      const errors = [];
-
-      for (const file of req.files) {
-        try {
-          const resumeDoc = await parseResume(file.path, file.originalname);
-
-          if (resumeDoc.error || !resumeDoc.rawText) {
-            errors.push({ error: resumeDoc.error || 'No text extracted', filename: file.originalname });
-            continue;
-          }
-
-          const candidateProfile = extractSkillsFromResume(resumeDoc, jdProfile);
-          const scored = scoreCandidate(candidateProfile, jdProfile, weights);
-
-          processedCandidates.push({
-            ...candidateProfile,
-            ...scored,
-            filename: file.originalname,
-            filePath: `/uploads/${runId}/${file.filename}`,
-            rawText: resumeDoc.rawText,
-            sections: resumeDoc.sections,
-            parseMethod: resumeDoc.parseMethod,
-            parseConfidence: resumeDoc.parseConfidence,
-            id: uuidv4()
-          });
-        } catch (err) {
-          console.error(`Error processing ${file.originalname}:`, err);
-          errors.push({ error: err.message, filename: file.originalname });
+        if (resumeDoc.error || !resumeDoc.rawText) {
+          return { error: resumeDoc.error || 'No text extracted', filename: file.originalname };
         }
-      }
 
-      console.log(`Chunk done: ${processedCandidates.length} processed, ${errors.length} errors`);
-      res.json({ success: true, processed: processedCandidates.length, errors, candidates: processedCandidates });
-    } catch (err) {
-      console.error('Chunk error:', err);
-      res.status(500).json({ error: err.message });
-    }
-  });
+        const candidateProfile = extractSkillsFromResume(resumeDoc, jdProfile);
+        const scored = scoreCandidate(candidateProfile, jdProfile, weights);
+
+        return {
+          ...candidateProfile,
+          ...scored,
+          filename: file.originalname,
+          filePath: `/uploads/${runId}/${file.filename}`,
+          rawText: resumeDoc.rawText,
+          sections: resumeDoc.sections,
+          parseMethod: resumeDoc.parseMethod,
+          parseConfidence: resumeDoc.parseConfidence,
+          id: uuidv4() // Generate ID statelessly
+        };
+      } catch (err) {
+        console.error(`Error processing ${file.originalname}:`, err);
+        return { error: err.message, filename: file.originalname };
+      }
+    });
+
+    const results = await Promise.all(processingPromises);
+    const processedCandidates = results.filter(r => !r.error);
+    const errors = results.filter(r => r.error);
+
+    res.json({ success: true, processed: processedCandidates.length, errors, candidates: processedCandidates });
+  } catch (err) {
+    console.error('Chunk error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 3. Finalize Run (Takes all accumulated candidates and saves to DB)
@@ -280,7 +263,7 @@ app.post('/api/pipeline/finalize/:runId', (req, res) => {
 
     // 2. Rank Candidates
     const rankResult = rankCandidates(safeCandidates, rankingConfig);
-    
+
     // 3. Insert all ranked candidates to DB
     const insertMany = db.transaction((ranked) => {
       for (const info of ranked) {
@@ -333,7 +316,7 @@ app.post('/api/pipeline/finalize/:runId', (req, res) => {
     try {
       queries.updateRunStatus.run('failed', JSON.stringify({ error: err.message }), runId);
       queries.insertAudit.run(runId, 'pipeline_failed', JSON.stringify({ error: err.message }));
-    } catch(e) {}
+    } catch (e) { }
     res.status(500).json({ error: err.message });
   }
 });
@@ -465,12 +448,12 @@ app.post('/api/rescore/:runId', async (req, res) => {
 function generateSmartAnswer(candidate, question) {
   const rawText = candidate.raw_text.toLowerCase();
   const q = question.toLowerCase();
-  
+
   // Parse structured data
   const skills = JSON.parse(candidate.skills || '[]');
   const education = JSON.parse(candidate.education || '{}');
   const workHistory = JSON.parse(candidate.work_history || '[]');
-  
+
   // Question type detection with better patterns
   const questionPatterns = {
     leadership: /\b(lead|manag|director|supervisor|team lead|head of|vp|cto|ceo)\b/i,
@@ -588,14 +571,14 @@ function generateSmartAnswer(candidate, question) {
   // Keyword-based search (improved fallback)
   const stopWords = ['what', 'when', 'where', 'who', 'why', 'how', 'does', 'have', 'they', 'this', 'that', 'candidate', 'resume', 'about', 'with', 'tell', 'know', 'can', 'you', 'the', 'and', 'for'];
   const keywords = q.replace(/[^a-z0-9 ]/g, '').split(' ').filter(w => w.length > 2 && !stopWords.includes(w));
-  
+
   if (keywords.length > 0) {
     // Check in skills first
     const skillMatches = skills.filter(s => keywords.some(k => s.toLowerCase().includes(k)));
     if (skillMatches.length > 0) {
       return `Yes, I found these related skills: ${skillMatches.join(', ')}.`;
     }
-    
+
     // Check in raw text with context
     const found = keywords.filter(k => rawText.includes(k));
     if (found.length > 0) {
@@ -647,7 +630,7 @@ app.post('/api/candidates/compare', (req, res) => {
   if (!question) return res.status(400).json({ error: 'Question required' });
 
   const candidates = candidateIds.map(id => queries.getCandidate.get(id)).filter(Boolean);
-  
+
   if (candidates.length === 0) {
     return res.status(404).json({ error: 'No candidates found' });
   }
@@ -668,7 +651,7 @@ app.post('/api/candidates/compare', (req, res) => {
       answer += `${name}: ${matchedSkills.length} matched skills (${skills.slice(0, 5).join(', ')}${skills.length > 5 ? '...' : ''})\n`;
     });
 
-    const bestSkills = skillsData.reduce((best, curr) => 
+    const bestSkills = skillsData.reduce((best, curr) =>
       curr.matchedSkills.length > best.matchedSkills.length ? curr : best
     );
     answer += `\n${bestSkills.name} has the most matched skills with ${bestSkills.matchedSkills.length} matches.`;
@@ -680,7 +663,7 @@ app.post('/api/candidates/compare', (req, res) => {
       answer += `${c.name}: ${c.total_yoe || 0} years of experience\n`;
     });
 
-    const mostExp = candidates.reduce((best, curr) => 
+    const mostExp = candidates.reduce((best, curr) =>
       (curr.total_yoe || 0) > (best.total_yoe || 0) ? curr : best
     );
     answer += `\n${mostExp.name} has the most experience with ${mostExp.total_yoe || 0} years.`;
@@ -708,7 +691,7 @@ app.post('/api/candidates/compare', (req, res) => {
       answer += `${c.name}: ${Math.round(c.composite_score)}% (Rank #${c.rank})\n`;
     });
 
-    const highest = candidates.reduce((best, curr) => 
+    const highest = candidates.reduce((best, curr) =>
       curr.composite_score > best.composite_score ? curr : best
     );
     answer += `\n${highest.name} has the highest score at ${Math.round(highest.composite_score)}%.`;
@@ -875,31 +858,31 @@ export default app;
 app.get('/api/candidate/:id/file', (req, res) => {
   const candidate = queries.getCandidate.get(req.params.id);
   if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
-  
+
   // If file_path is already set, return it
   if (candidate.file_path) {
     return res.json({ filePath: candidate.file_path });
   }
-  
+
   // Otherwise, try to find the file in the uploads directory
   const runDir = path.join(UPLOAD_DIR, candidate.run_id);
-  
+
   try {
     const files = fs.readdirSync(runDir);
     const originalName = candidate.filename;
     const baseName = path.basename(originalName, path.extname(originalName));
-    
+
     // Find file that starts with the original name
     const matchingFile = files.find(f => {
       const fBaseName = path.basename(f, path.extname(f));
       return fBaseName.startsWith(baseName) || f.includes(baseName);
     });
-    
+
     if (matchingFile) {
       const filePath = `/uploads/${candidate.run_id}/${matchingFile}`;
       return res.json({ filePath, actualFilename: matchingFile });
     }
-    
+
     res.status(404).json({ error: 'File not found' });
   } catch (err) {
     console.error('Error finding file:', err);
