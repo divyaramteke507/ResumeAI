@@ -55,7 +55,7 @@ export function initApp() {
       render();
     }
   });
-  
+
   render();
   initKeyboardShortcuts();
 }
@@ -701,7 +701,7 @@ function closeModal() {
 // ═══════════════════════════════════════════════════════════════
 
 function renderComparisonView() {
-  const candidates = state.comparisonCandidates.map(id => 
+  const candidates = state.comparisonCandidates.map(id =>
     state.candidates.find(c => c.id === id)
   ).filter(Boolean);
 
@@ -818,11 +818,11 @@ function renderComparisonDetailCard(c) {
 }
 
 function renderComparisonChatMessages() {
-  const messages = state.chatHistory['comparison'] || [{ 
-    role: 'ai', 
-    text: 'Hi! Ask me to compare these candidates. Try "Compare their skills" or "Who has more experience?"' 
+  const messages = state.chatHistory['comparison'] || [{
+    role: 'ai',
+    text: 'Hi! Ask me to compare these candidates. Try "Compare their skills" or "Who has more experience?"'
   }];
-  
+
   return messages.map(m => `
     <div style="display: flex; gap: var(--space-3); margin-bottom: var(--space-2); flex-direction: ${m.role === 'user' ? 'row-reverse' : 'row'}; animation: fadeIn 0.3s ease-in;">
       <div style="font-size: 20px; line-height: 1; flex-shrink: 0;">${m.role === 'user' ? '👤' : '🤖'}</div>
@@ -844,9 +844,9 @@ async function handleComparisonChatSubmit(question) {
   if (!question.trim()) return;
 
   if (!state.chatHistory['comparison']) {
-    state.chatHistory['comparison'] = [{ 
-      role: 'ai', 
-      text: 'Hi! Ask me to compare these candidates. Try "Compare their skills" or "Who has more experience?"' 
+    state.chatHistory['comparison'] = [{
+      role: 'ai',
+      text: 'Hi! Ask me to compare these candidates. Try "Compare their skills" or "Who has more experience?"'
     }];
   }
 
@@ -857,7 +857,7 @@ async function handleComparisonChatSubmit(question) {
     chatMessagesEl.innerHTML = renderComparisonChatMessages();
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
   }
-  
+
   const inputEl = document.getElementById('comparison-chat-input');
   if (inputEl) {
     inputEl.value = '';
@@ -901,12 +901,16 @@ async function showSideBySideView(candidateId) {
 
   // Determine file type
   const fileExt = candidate.filename.split('.').pop().toLowerCase();
-  
+
   // Get the correct file path
   let filePath = candidate.file_path;
-  
-  // If file_path is not set, try to get it from the API
-  if (!filePath) {
+
+  // See if we have the file in browser memory (needed for Vercel ephemeral bypass)
+  const localFile = state.uploadedFiles?.find(f => f.name === candidate.filename);
+  if (localFile) {
+    filePath = URL.createObjectURL(localFile);
+    console.log('Using local Blob URL for Vercel bypass:', filePath);
+  } else if (!filePath) {
     try {
       const response = await fetch(`/api/candidate/${candidateId}/file`);
       if (response.ok) {
@@ -923,7 +927,7 @@ async function showSideBySideView(candidateId) {
       filePath = `/uploads/${state.runId}/${candidate.filename}`;
     }
   }
-  
+
   console.log('=== Side-by-Side View Debug ===');
   console.log('Candidate:', candidate.name);
   console.log('File path:', filePath);
@@ -932,10 +936,10 @@ async function showSideBySideView(candidateId) {
   console.log('Original filename:', candidate.filename);
   console.log('Stored file_path:', candidate.file_path);
   console.log('================================');
-  
+
   // Initial view mode
   let currentView = 'original'; // 'original' or 'text'
-  
+
   function renderResumeView(viewMode) {
     if (viewMode === 'text') {
       return `
@@ -946,10 +950,10 @@ async function showSideBySideView(candidateId) {
         </div>
       `;
     }
-    
+
     // Original file view
     let fileViewer = '';
-    
+
     if (fileExt === 'pdf') {
       fileViewer = `
         <iframe 
@@ -1008,7 +1012,7 @@ async function showSideBySideView(candidateId) {
         </div>
       `;
     }
-    
+
     return fileViewer;
   }
 
@@ -1062,17 +1066,17 @@ async function showSideBySideView(candidateId) {
   const btnViewOriginal = document.getElementById('btn-view-original');
   const btnViewText = document.getElementById('btn-view-text');
   const viewerContainer = document.getElementById('resume-viewer-container');
-  
+
   if (closeBtn) {
     closeBtn.addEventListener('click', closeModal);
   }
-  
+
   if (overlay) {
     overlay.addEventListener('click', (e) => {
       if (e.target === e.currentTarget) closeModal();
     });
   }
-  
+
   if (btnViewOriginal) {
     btnViewOriginal.addEventListener('click', () => {
       currentView = 'original';
@@ -1083,7 +1087,7 @@ async function showSideBySideView(candidateId) {
       btnViewText.style.color = 'var(--text-secondary)';
     });
   }
-  
+
   if (btnViewText) {
     btnViewText.addEventListener('click', () => {
       currentView = 'text';
@@ -1198,12 +1202,12 @@ function bindEvents() {
   if (btnGoogleSignin) {
     btnGoogleSignin.addEventListener('click', handleGoogleSignIn);
   }
-  
+
   const btnGoogleSigninBottom = document.getElementById('btn-google-signin-bottom');
   if (btnGoogleSigninBottom) {
     btnGoogleSigninBottom.addEventListener('click', handleGoogleSignIn);
   }
-  
+
   const btnLogout = document.getElementById('btn-logout');
   if (btnLogout) {
     btnLogout.addEventListener('click', handleLogout);
@@ -1368,9 +1372,9 @@ function bindEvents() {
   if (comparisonChatClear) {
     comparisonChatClear.addEventListener('click', () => {
       if (confirm('Clear comparison chat history?')) {
-        state.chatHistory['comparison'] = [{ 
-          role: 'ai', 
-          text: 'Hi! Ask me to compare these candidates. Try "Compare their skills" or "Who has more experience?"' 
+        state.chatHistory['comparison'] = [{
+          role: 'ai',
+          text: 'Hi! Ask me to compare these candidates. Try "Compare their skills" or "Who has more experience?"'
         }];
         const chatMessagesEl = document.getElementById('comparison-chat-messages');
         if (chatMessagesEl) {
@@ -1608,7 +1612,7 @@ async function handleProcessJD() {
 
     const result = await api.createJD(text);
     state.jdId = result.id;
-    state.jdProfile = { ...result, rawText: text };
+    state.jdProfile = result;
 
     showToast(`JD processed! Found ${result.requiredSkills?.length || 0} required skills.`, 'success');
     render();
@@ -1645,8 +1649,8 @@ async function handleStartScreening() {
     }
 
     const result = await api.runPipeline(
-      state.jdId, 
-      state.uploadedFiles, 
+      state.jdId,
+      state.uploadedFiles,
       {
         weights: state.weights,
         shortlistMode: 'top_n',
@@ -1989,9 +1993,9 @@ async function handleGoogleSignIn() {
     btn.disabled = true;
     btn.innerHTML = '<span>Signing in...</span>';
   }
-  
+
   const result = await signInWithGoogle();
-  
+
   if (result.success) {
     showToast('Welcome! Signed in successfully.', 'success');
     state.user = result.user;
@@ -2016,7 +2020,7 @@ async function handleGoogleSignIn() {
 
 async function handleLogout() {
   const result = await logOut();
-  
+
   if (result.success) {
     showToast('Signed out successfully', 'info');
     state.user = null;
