@@ -248,7 +248,18 @@ function renderProcessingView() {
     <div class="processing-view">
       <div class="processing-content">
         <div class="processing-title">Processing Resumes</div>
-        <div class="processing-subtitle">Running the AI pipeline on ${state.uploadedFiles.length} resume${state.uploadedFiles.length !== 1 ? 's' : ''}...</div>
+        <div class="processing-subtitle" id="processing-subtitle">Running the AI pipeline on ${state.uploadedFiles.length} resume${state.uploadedFiles.length !== 1 ? 's' : ''}...</div>
+        
+        <!-- Loading Progress Bar -->
+        <div style="margin: var(--space-4) 0;">
+          <div style="background: var(--bg-surface); border-radius: 999px; height: 12px; overflow: hidden; position: relative; border: 1px solid var(--border-default);">
+            <div id="processing-progress-bar" style="position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); transition: width 0.3s ease; border-radius: 999px; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);"></div>
+          </div>
+          <div id="chunk-progress" style="text-align: right; font-size: var(--text-sm); color: var(--accent-blue); margin-top: var(--space-2); font-weight: 500;">
+            0% (0 / ${state.uploadedFiles.length} processed)
+          </div>
+        </div>
+
         <div class="pipeline-stages" id="pipeline-stages">
           ${PIPELINE_STAGES.map((stage, i) => `
             <div class="pipeline-stage" data-stage="${i}" id="stage-${i}">
@@ -1643,9 +1654,9 @@ async function handleStartScreening() {
   const animationPromise = animatePipeline(400);
 
   try {
-    const subtitle = document.querySelector('.processing-subtitle');
+    const subtitle = document.getElementById('processing-subtitle');
     if (subtitle) {
-      subtitle.innerHTML = `Starting pipeline for ${state.uploadedFiles.length} resumes...<br><span id="chunk-progress" style="font-weight: bold; color: var(--accent-blue);">0 / ${state.uploadedFiles.length}</span>`;
+      subtitle.innerHTML = `Starting pipeline for ${state.uploadedFiles.length} resumes...`;
     }
 
     const result = await api.runPipeline(
@@ -1659,8 +1670,14 @@ async function handleStartScreening() {
       },
       (processed, total) => {
         const progressEl = document.getElementById('chunk-progress');
+        const progressBar = document.getElementById('processing-progress-bar');
+        const percentage = total > 0 ? Math.round((processed / total) * 100) : 0;
+        
         if (progressEl) {
-          progressEl.textContent = `${processed} / ${total} processed`;
+          progressEl.textContent = `${percentage}% (${processed} / ${total} processed)`;
+        }
+        if (progressBar) {
+          progressBar.style.width = `${percentage}%`;
         }
       }
     );
