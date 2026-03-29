@@ -11,8 +11,15 @@
       "destination": "/api"
     },
     {
+      "source": "/assets/(.*)",
+      "destination": "/dist/assets/$1"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/dist/index.html"
     }
   ],
   "functions": {
