@@ -2,7 +2,7 @@
  * API Client — communicates with the Express backend.
  */
 
-const BASE = '/api';
+const BASE = 'https://resume-ai-backend-55i5.onrender.com/api';
 
 async function request(url, options = {}) {
   const res = await fetch(`${BASE}${url}`, {
