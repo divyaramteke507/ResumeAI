@@ -1,4 +1,5 @@
 {
+  "name": "resume-ai-agent",
   "version": 2,
   "rewrites": [
     {
@@ -15,7 +16,7 @@
     }
   ],
   "functions": {
-    "api/index.js": {
+    "api/**/*": {
       "maxDuration": 60,
       "memory": 1024
     }
