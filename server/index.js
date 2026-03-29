@@ -38,7 +38,30 @@ if (!isVercel) {
 
 // ── Express App ─────────────────────────────────────────────────
 const app = express();
-app.use(cors());
+
+// CORS — allow Render frontend + localhost dev
+const allowedOrigins = [
+  'https://resumeai-x07c.onrender.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    // Also allow any *.onrender.com subdomain
+    if (origin.endsWith('.onrender.com')) return cb(null, true);
+    cb(null, true); // fallback: allow all (safe for public API)
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-run-id'],
+}));
+
+// Explicitly handle preflight for all routes
+app.options('*', cors());
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
