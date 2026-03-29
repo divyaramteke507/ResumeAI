@@ -11,6 +11,8 @@ import {
 import Chart from 'chart.js/auto';
 import { signInWithGoogle, logOut, onAuthChange } from './firebase-config.js';
 import { renderLoginView } from './views/login.js';
+import { initThreeBackground } from './three-bg.js';
+import { DottedSurface } from './components/ui/dotted-surface.js';
 
 // ═══════════════════════════════════════════════════════════════
 // STATE
@@ -36,11 +38,16 @@ const state = {
   sideBySideMode: false, // For side-by-side view
 };
 
+let activeBackground = null;
+let currentBgType = null; // 'dotted' | 'shapes'
+
 // ═══════════════════════════════════════════════════════════════
 // APP INIT
 // ═══════════════════════════════════════════════════════════════
 
 export function initApp() {
+  initRevealObserver();
+  
   // Listen for auth state changes
   onAuthChange((user) => {
     if (user) {
@@ -60,6 +67,53 @@ export function initApp() {
   initKeyboardShortcuts();
 }
 
+function updateBackground(view) {
+  const neededBgType = view === 'login' ? 'dotted' : 'shapes';
+  const container = document.getElementById('dotted-surface-container') || document.body;
+  
+  // If we already have the right background AND its canvas is still in the DOM, do nothing
+  if (currentBgType === neededBgType && activeBackground && container.contains(activeBackground.renderer?.domElement || null)) {
+    return;
+  }
+  
+  if (activeBackground) {
+    if (activeBackground.destroy) activeBackground.destroy();
+    activeBackground = null;
+  }
+  
+  if (neededBgType === 'dotted') {
+    activeBackground = new DottedSurface(container);
+  } else {
+    activeBackground = initThreeBackground();
+  }
+  
+  currentBgType = neededBgType;
+}
+
+function initRevealObserver() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('active');
+      }
+    });
+  }, { threshold: 0.1 });
+
+  // Re-observe after every render
+  const originalRender = render;
+  render = function() {
+    originalRender();
+    
+    // Only add reveal to glass-cards if NOT on login page
+    const selector = state.view === 'login' ? '.reveal' : '.reveal, .glass-card';
+    
+    document.querySelectorAll(selector).forEach(el => {
+      if (!el.classList.contains('reveal')) el.classList.add('reveal');
+      observer.observe(el);
+    });
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════
 // RENDER
 // ═══════════════════════════════════════════════════════════════
@@ -67,16 +121,18 @@ export function initApp() {
 function render() {
   const app = document.getElementById('app');
   app.innerHTML = '';
-
+  
   // Login view (no header)
   if (state.view === 'login') {
     app.innerHTML = renderLoginView();
+    updateBackground(state.view);
     bindEvents();
     return;
   }
 
   // Header (always shown for authenticated views)
   app.innerHTML += renderHeader();
+  updateBackground(state.view);
 
   // Current view
   switch (state.view) {
@@ -157,15 +213,14 @@ function renderUploadView() {
       </div>
       <div class="upload-content">
         <div class="upload-hero">
-          <h1>AI Resume Screening Agent</h1>
-          <p>Upload a job description and resumes. Get ranked candidates with explainable AI scoring — all processed locally.</p>
+          <h1 class="premium-title floating glitch shake" data-text="AI Resume Screening Agent">AI Resume Screening Agent</h1>
+          <p class="text-neon-cyan">Upload a job description and resumes. Get ranked candidates with explainable AI scoring — all processed locally.</p>
         </div>
         
         <div class="upload-steps">
           <!-- Step 1: JD -->
-          <div class="upload-step ${hasJD ? 'completed' : 'active'}" id="step-jd">
+          <div class="upload-step glass-card ${hasJD ? 'completed' : 'active'}" id="step-jd">
             <div class="step-header">
-              <div class="step-number">${hasJD ? '✓' : '1'}</div>
               <div class="step-title">Job Description</div>
             </div>
             <textarea class="jd-textarea" id="jd-input"
@@ -177,7 +232,7 @@ function renderUploadView() {
               </div>
             ` : `
               <div style="margin-top: var(--space-3);">
-                <div style="font-size: var(--text-xs); color: var(--text-muted);">
+                <div style="font-size: var(--text-xs); color: var(--text-secondary);">
                   ✓ ${state.jdProfile.requiredSkills?.length || 0} required skills · 
                   ${state.jdProfile.preferredSkills?.length || 0} preferred · 
                   ${state.jdProfile.minExperience || 0}+ yrs exp · 
@@ -191,9 +246,8 @@ function renderUploadView() {
           </div>
           
           <!-- Step 2: Resumes -->
-          <div class="upload-step ${hasFiles ? 'completed' : (hasJD ? 'active' : '')}" id="step-resumes">
+          <div class="upload-step glass-card ${hasFiles ? 'completed' : (hasJD ? 'active' : '')}" id="step-resumes">
             <div class="step-header">
-              <div class="step-number">${hasFiles ? '✓' : '2'}</div>
               <div class="step-title">Upload Resumes</div>
             </div>
             <div class="dropzone" id="dropzone">

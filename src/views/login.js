@@ -5,14 +5,17 @@
 export function renderLoginView() {
   return `
     <div class="login-view">
+      <!-- Dotted Surface Container (will be handled by DottedSurface class) -->
+      <div id="dotted-surface-container" class="absolute inset-0 -z-1"></div>
+
       <!-- Hero Section -->
       <div class="login-hero">
         <div class="login-hero-content">
-          <div class="login-logo-large">
+          <div class="login-logo-large floating shake">
             <div class="login-logo-icon">R</div>
             <div class="login-logo-text">ResumeAI</div>
           </div>
-          <h1 class="login-hero-title">
+          <h1 class="login-hero-title premium-title glitch shake" data-text="Transform Your Hiring Process with AI">
             Transform Your Hiring Process with AI
           </h1>
           <p class="login-hero-subtitle">
@@ -36,15 +39,15 @@ export function renderLoginView() {
         </div>
         
         <div class="login-hero-visual">
-          <div class="floating-card card-1">
+          <div class="floating-card card-1 glass-card">
             <div class="card-icon">📊</div>
             <div class="card-text">AI-Powered Scoring</div>
           </div>
-          <div class="floating-card card-2">
+          <div class="floating-card card-2 glass-card">
             <div class="card-icon">⚡</div>
             <div class="card-text">10x Faster Screening</div>
           </div>
-          <div class="floating-card card-3">
+          <div class="floating-card card-3 glass-card">
             <div class="card-icon">🎯</div>
             <div class="card-text">95% Accuracy</div>
           </div>
@@ -57,7 +60,7 @@ export function renderLoginView() {
         <p class="section-subheading">Built for modern recruiters who value speed, accuracy, and fairness</p>
         
         <div class="features-grid">
-          <div class="feature-card">
+          <div class="feature-card glass-card">
             <div class="feature-icon">🤖</div>
             <h3 class="feature-title">Intelligent AI Agent</h3>
             <p class="feature-description">
@@ -65,7 +68,7 @@ export function renderLoginView() {
             </p>
           </div>
           
-          <div class="feature-card">
+          <div class="feature-card glass-card">
             <div class="feature-icon">📊</div>
             <h3 class="feature-title">Multi-Dimensional Scoring</h3>
             <p class="feature-description">
@@ -73,7 +76,7 @@ export function renderLoginView() {
             </p>
           </div>
           
-          <div class="feature-card">
+          <div class="feature-card glass-card">
             <div class="feature-icon">💬</div>
             <h3 class="feature-title">Chat with Resumes</h3>
             <p class="feature-description">
@@ -81,7 +84,7 @@ export function renderLoginView() {
             </p>
           </div>
           
-          <div class="feature-card">
+          <div class="feature-card glass-card">
             <div class="feature-icon">⊞</div>
             <h3 class="feature-title">Compare Candidates</h3>
             <p class="feature-description">
@@ -89,7 +92,7 @@ export function renderLoginView() {
             </p>
           </div>
           
-          <div class="feature-card">
+          <div class="feature-card glass-card">
             <div class="feature-icon">📄</div>
             <h3 class="feature-title">Original File Viewer</h3>
             <p class="feature-description">
@@ -97,11 +100,11 @@ export function renderLoginView() {
             </p>
           </div>
           
-          <div class="feature-card">
+          <div class="feature-card glass-card">
             <div class="feature-icon">🎯</div>
             <h3 class="feature-title">Smart Ranking</h3>
             <p class="feature-description">
-              Candidates are automatically ranked based on job fit. Get clear recommendations: "Strong Match," "Good Fit," or "Consider." Every decision is explainable.
+              Stop sorting resumes manually. Our agent provides a ranked list of candidates with explainable recommendations, helping you focus on the best talent immediately.
             </p>
           </div>
         </div>
@@ -112,51 +115,25 @@ export function renderLoginView() {
         <h2 class="section-heading">How It Works</h2>
         <p class="section-subheading">From job description to shortlist in 4 simple steps</p>
         
-        <div class="steps-container">
+        <div class="how-it-works-grid">
           <div class="step-card">
-            <div class="step-number">1</div>
-            <div class="step-content">
-              <h3 class="step-title">Paste Job Description</h3>
-              <p class="step-description">
-                Copy your job posting and paste it in. Our AI extracts required skills, experience levels, and education requirements automatically.
-              </p>
-            </div>
+            <h3 class="step-title">Upload JD</h3>
+            <p class="step-desc">Paste your job posting and let AI extract the key requirements automatically.</p>
           </div>
           
-          <div class="step-arrow">→</div>
-          
           <div class="step-card">
-            <div class="step-number">2</div>
-            <div class="step-content">
-              <h3 class="step-title">Upload Resumes</h3>
-              <p class="step-description">
-                Drag and drop PDF, Word, or image files. Support for multiple formats including scanned documents. Upload up to 100 resumes at once.
-              </p>
-            </div>
+            <h3 class="step-title">Upload Resumes</h3>
+            <p class="step-desc">Drag and drop PDF, Word, or images. Upload up to 100 resumes at once.</p>
           </div>
           
-          <div class="step-arrow">→</div>
-          
           <div class="step-card">
-            <div class="step-number">3</div>
-            <div class="step-content">
-              <h3 class="step-title">AI Processing</h3>
-              <p class="step-description">
-                Watch as our AI agent parses, extracts, scores, and ranks candidates. The entire pipeline runs in seconds, processing text, skills, and experience.
-              </p>
-            </div>
+            <h3 class="step-title">AI Processing</h3>
+            <p class="step-desc">Watch as our AI agent parses, extracts, and scores candidates in seconds.</p>
           </div>
           
-          <div class="step-arrow">→</div>
-          
           <div class="step-card">
-            <div class="step-number">4</div>
-            <div class="step-content">
-              <h3 class="step-title">Review & Decide</h3>
-              <p class="step-description">
-                Get a ranked list of candidates with detailed insights. Chat with resumes, compare candidates, and make informed hiring decisions in minutes.
-              </p>
-            </div>
+            <h3 class="step-title">Review & Decide</h3>
+            <p class="step-desc">Get a ranked list with detailed insights and make informed decisions fast.</p>
           </div>
         </div>
       </div>
@@ -164,30 +141,26 @@ export function renderLoginView() {
       <!-- Benefits Section -->
       <div class="login-benefits">
         <h2 class="section-heading">The ResumeAI Advantage</h2>
-        
         <div class="benefits-grid">
           <div class="benefit-item">
-            <div class="benefit-stat">10x</div>
-            <div class="benefit-label">Faster Screening</div>
-            <p class="benefit-text">Screen 100 resumes in the time it takes to read 10</p>
+            <div class="benefit-icon">⚡</div>
+            <h3 class="benefit-title">10x Faster Screening</h3>
+            <p class="benefit-desc">Screen 100 resumes in the time it takes to read 10 manually.</p>
           </div>
-          
           <div class="benefit-item">
-            <div class="benefit-stat">95%</div>
-            <div class="benefit-label">Accuracy Rate</div>
-            <p class="benefit-text">AI-powered extraction with human-level understanding</p>
+            <div class="benefit-icon">🎯</div>
+            <h3 class="benefit-title">95% Accuracy</h3>
+            <p class="benefit-desc">AI-powered extraction with human-level understanding.</p>
           </div>
-          
           <div class="benefit-item">
-            <div class="benefit-stat">100%</div>
-            <div class="benefit-label">Explainable</div>
-            <p class="benefit-text">Every score comes with detailed reasoning</p>
+            <div class="benefit-icon">🧠</div>
+            <h3 class="benefit-title">100% Explainable</h3>
+            <p class="benefit-desc">Every score comes with detailed reasoning and evidence.</p>
           </div>
-          
           <div class="benefit-item">
-            <div class="benefit-stat">0</div>
-            <div class="benefit-label">Bias</div>
-            <p class="benefit-text">Fair, objective evaluation based on qualifications</p>
+            <div class="benefit-icon">⚖️</div>
+            <h3 class="benefit-title">Zero Bias</h3>
+            <p class="benefit-desc">Fair, objective evaluation based purely on qualifications.</p>
           </div>
         </div>
       </div>
@@ -205,18 +178,35 @@ export function renderLoginView() {
           </svg>
           <span>Get Started with Google</span>
         </button>
-        <p class="cta-note">Free to start • No credit card required • 5-minute setup</p>
       </div>
       
       <!-- Footer -->
-      <div class="login-footer">
-        <p>© 2026 ResumeAI. Built with ❤️ for recruiters.</p>
-        <div class="footer-links">
-          <a href="#privacy">Privacy Policy</a>
-          <a href="#terms">Terms of Service</a>
-          <a href="#contact">Contact Us</a>
+      <footer class="login-footer">
+        <div class="footer-top">
+          <div class="footer-logo">
+            <div class="app-logo-icon">R</div>
+            <span class="app-logo-text">ResumeAI</span>
+          </div>
+          <div class="footer-links">
+            <div class="footer-column">
+              <span class="footer-column-title">Product</span>
+              <a href="#">Features</a>
+              <a href="#">How it Works</a>
+              <a href="#">Pricing</a>
+            </div>
+            <div class="footer-column">
+              <span class="footer-column-title">Company</span>
+              <a href="#">About Us</a>
+              <a href="#">Contact</a>
+              <a href="#">Privacy Policy</a>
+            </div>
+          </div>
         </div>
-      </div>
+        <div class="footer-bottom">
+          <p>© 2026 ResumeAI. All rights reserved.</p>
+          <p>Built with ❤️ for the future of hiring.</p>
+        </div>
+      </footer>
     </div>
   `;
 }
