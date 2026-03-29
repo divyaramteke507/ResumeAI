@@ -912,7 +912,7 @@ async function showSideBySideView(candidateId) {
     console.log('Using local Blob URL for Vercel bypass:', filePath);
   } else if (!filePath) {
     try {
-      const response = await fetch(`https://resume-ai-backend-55i5.onrender.com/api/candidate/${candidateId}/file`);
+      const response = await fetch(`/api/candidate/${candidateId}/file`);
       if (response.ok) {
         const data = await response.json();
         filePath = data.filePath;
